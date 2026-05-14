@@ -1,0 +1,1 @@
+This is a Secure Job Application Tracker API built with Node.js, Express, TypeScript, Prisma, PostgreSQL, Redis, Vault, and Docker. Milestone 1 focuses only on setting up a clean TypeScript Express API foundation.
