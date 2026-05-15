@@ -1,0 +1,12 @@
+services:
+  api:
+    build: . # Build the Docker image from the current directory
+    command: npm run dev # Override Dockerfile command and run dev mode
+    ports:
+      - "20000:20000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app #mounts code into container
+      - /app/node_modules #protects container dependencies from being overwritten
+      
