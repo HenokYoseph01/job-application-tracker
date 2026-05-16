@@ -4,7 +4,7 @@ Milestone 1:
 What did I set up?
  An typescript express application, that has a dockerfile and compose file set up 
 What is Express responsible for?
- It is responsible for creating a ready to go server and create apis in an opinionated manner
+ It is responsible for creating a ready to go server and create apis in an unopinionated manner
 What is TypeScript responsible for?
  Typescript is here to provide type saftey for the application. This means that every variable, function, return, etc have a type which makes the application much more robust and safer to use
 What does Docker do here?
