@@ -9,4 +9,21 @@ services:
     volumes:
       - .:/app #mounts code into container
       - /app/node_modules #protects container dependencies from being overwritten
-      
+    depends_on:
+      - postgres-practice
+
+  postgres-practice:
+    image: postgres:15-alpine
+    container_name: postgres-practice
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5435:5432"
+    volumes:  
+      - postgres-data-test:/var/lib/postgresql/data
+
+volumes:
+  postgres-data-test:
