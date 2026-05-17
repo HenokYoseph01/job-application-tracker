@@ -2,6 +2,7 @@ import express, {type Request, type Response, type Application} from "express";
 import morgan from "morgan";
 import { AppError } from "./utils/AppError.js";
 import { geh } from "./middlewares/geh.js";
+import { prisma } from "./lib/prisma.js";
 const app: Application = express();
 const PORT = 20000;
 
@@ -31,6 +32,16 @@ app.use((req: Request, res:Response) => {
 
 app.use(geh);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+})
+
+
+//Graceful shutdown
+process.on("SIGINT", async() => {
+    await prisma.$disconnect();
+    server.close(() => {
+        console.log("Server and Postgres closed gracefully");
+        process.exit(0);
+    });
 })
