@@ -9,3 +9,5 @@ router.post("/", applicationController.createApplication);
 router.get("/:id", applicationController.getApplicationById);
 router.patch("/:id", applicationController.updateApplication);
 router.delete("/:id", applicationController.deleteApplication);   
+
+export default router;

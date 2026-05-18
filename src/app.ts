@@ -3,6 +3,9 @@ import morgan from "morgan";
 import { AppError } from "./utils/AppError.js";
 import { geh } from "./middlewares/geh.js";
 import { prisma } from "./lib/prisma.js";
+
+//routes
+import applicationRoutes from './routes/application.route.js'
 const app: Application = express();
 const PORT = 20000;
 
@@ -21,9 +24,9 @@ app.get("/api/v1", (req: Request, res: Response) => {
     res.status(200).json({ message: "AOI version active" });
 })
 
-app.get("/", (req: Request, res: Response) => {
-    throw new AppError("OH NO", 400);
-})
+app.use("/api/v1/applications", applicationRoutes);
+
+
 
 // Handle 404 errors for undefined routes
 app.use((req: Request, res:Response) => {

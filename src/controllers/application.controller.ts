@@ -1,7 +1,25 @@
 import {type Request, type Response} from "express";
+import {prisma} from "../lib/prisma.js";
 
 
-const getAllApplications = (req: Request, res: Response) => {}
+const getAllApplications = async (req: Request, res: Response) => {
+    console.log("Fetching all applications...");
+    try {
+        const applications = await prisma.application.findMany();
+        res.status(200).json({
+            status: 200,
+            data: applications
+        });
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            status: 500,
+            error: "Internal Server Error"
+        });
+    }
+    
+}
 
 const createApplication = (req: Request, res: Response) => {}
 
