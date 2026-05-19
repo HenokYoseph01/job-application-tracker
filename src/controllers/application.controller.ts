@@ -1,6 +1,7 @@
 import {type Request, type Response} from "express";
 import {prisma} from "../lib/prisma.js";
-import type { Prisma, Status, WorkMode } from "../../generated/prisma/client.js";
+import { Status } from "../../generated/prisma/client.js";
+import type { Prisma, WorkMode } from "../../generated/prisma/client.js";
 
 type CreateApplicationBody = {
   companyName: string;
@@ -24,13 +25,87 @@ type ApplicationParams = {
     id: string;
 };
 
+type GetApplicationsQuery = {
+    status?: Status;
+    companyName?: string;
+    sort?: "asc" | "desc";
+    page?: string;
+    limit?: string;
+};
 
-const getAllApplications = async (req: Request, res: Response) => {
+const isStatus = (value: string): value is Status => {
+    return Object.values(Status).includes(value as Status);
+};
+
+
+const getAllApplications = async (
+    req: Request<unknown, unknown, unknown, GetApplicationsQuery>,
+    res: Response
+) => {
     console.log("Fetching all applications...");
     try {
-        const applications = await prisma.application.findMany();
+        const { status, companyName, sort = "desc" } = req.query;
+        const page = Number(req.query.page ?? 1);
+        const limit = Number(req.query.limit ?? 10);
+
+        if (status && !isStatus(status)) {
+            return res.status(400).json({
+                status: 400,
+                error: "Invalid status filter"
+            });
+        }
+
+        if (sort !== "asc" && sort !== "desc") {
+            return res.status(400).json({
+                status: 400,
+                error: "Sort must be either asc or desc"
+            });
+        }
+
+        if (!Number.isInteger(page) || page < 1) {
+            return res.status(400).json({
+                status: 400,
+                error: "Page must be a positive integer"
+            });
+        }
+
+        if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+            return res.status(400).json({
+                status: 400,
+                error: "Limit must be a positive integer between 1 and 100"
+            });
+        }
+
+        const where: Prisma.ApplicationWhereInput = {};
+
+        if (status) {
+            where.status = status;
+        }
+
+        if (companyName) {
+            where.companyName = {
+                contains: companyName,
+                mode: "insensitive"
+            };
+        }
+
+        const total = await prisma.application.count({ where });
+        const applications = await prisma.application.findMany({
+            where,
+            orderBy: {
+                applicationDate: sort
+            },
+            skip: (page - 1) * limit,
+            take: limit
+        });
+
         res.status(200).json({
             status: 200,
+            results: applications.length,
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
             data: applications
         });
     } catch (error) {
