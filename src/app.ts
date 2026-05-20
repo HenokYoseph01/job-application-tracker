@@ -6,6 +6,8 @@ import { prisma } from "./lib/prisma.js";
 
 //routes
 import applicationRoutes from './routes/application.route.js'
+import userRoutes from './routes/user.route.js'
+
 const app: Application = express();
 const PORT = 20000;
 
@@ -25,6 +27,8 @@ app.get("/api/v1", (req: Request, res: Response) => {
 })
 
 app.use("/api/v1/applications", applicationRoutes);
+
+app.use("/api/v1/users", userRoutes);
 
 
 
