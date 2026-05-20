@@ -14,6 +14,12 @@ const statuses = [
 ];
 
 const workModes = [WorkMode.REMOTE, WorkMode.HYBRID, WorkMode.ONSITE];
+const shouldClearData = process.argv.includes("-d");
+
+const clearData = async () => {
+  await prisma.application.deleteMany();
+  await prisma.user.deleteMany();
+};
 
 const createApplication = () => {
   const salaryMin = faker.number.int({ min: 60000, max: 120000 });
@@ -35,8 +41,11 @@ const createApplication = () => {
 };
 
 const main = async () => {
-  await prisma.application.deleteMany();
-  await prisma.user.deleteMany();
+  if (shouldClearData) {
+    await clearData();
+    console.log("Cleared existing seed data.");
+    return;
+  }
 
   const users = await Promise.all(
     Array.from({ length: 5 }, async (_, index) => {
@@ -47,6 +56,7 @@ const main = async () => {
             .email({ provider: "example.com" })
             .replace("@", `.${index}@`)
             .toLowerCase(),
+          // passwordHash: "$2b$10$seeded.fake.password.hash.for.testing.only",
           applications: {
             create: Array.from({ length: 4 }, createApplication),
           },
