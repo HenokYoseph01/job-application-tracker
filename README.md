@@ -29,3 +29,25 @@ What is a relation?
     A relation is a connection between tables, a table property/column having a relation tag means it is connected to another table's column either in pointing to that table or being able to show related data. 
 What errors did I face and how did I fix them?
     I faced a lot of errors regarding migrations, generating client, and also how to apply CRUD operations to my application controller. I managed to fix these through a mix of heavy researching and reading documentation as well as minor AI usage to explain things I did not understand
+
+Milestone 3:
+What is authentication?
+    Authentication is a way for a user to access their data as well as act as a security path that essentially keeps the user's data safe. If you can't enter the system with a username and password (or oauth/or whatever), then the data isn't accessable/ isn't yours if you are trying to use someones credentials/
+What is authorization?
+    Authorization is a process where the user is assigned a certain role which corresponds to doing something in the system. For example, an admin will have certain permissions that allow them to do something that a normal user can and vise versa. A user with the role of USER shouldn't be able to do things an admin does.
+What is password hashing?
+    Password hashing is a process of turning a password into a fixed length output called a hash. This hash is a one way encryption, once a value is hashed it cannot be turned back into it's original value.
+Why should we never store plain passwords?
+    If the database has stored its passwords as plain strings, then in the case of a database breach or sql injection, a hacker can get the passwords easily and access user data. A BIG SECURITY RISK
+What is JWT?
+    JSON Web Token is a way of signing data using a secret/signiture to transmit data in a safe manner, esentially encrypting the data and only be able to access it if a proper signature is provided (via a secret for example.)
+What is stored inside your JWT?
+    A header, payload and signature 
+What is Bearer authentication?
+    An http security method granting access to whoever holds a unique access string called a bearer token, where the token itself is what allows access to data. Much like a ticket is needed in order to enter a ride in an amusement park.
+How does req.user get added?
+    Req.user in a typescript application can be added by adding the interface to the express namespace specfically the request interface. This is called decleartion merging, where we can add user as an interface property while calling the express namespace and it will add it to the already existing request interface
+How did you prevent users from accessing each other’s data?
+    Use prisma getfirst to compare the id of a data but also the userId with the current logged in user through req.user.id, which in turn will return nothing if the data's user id and the user id don't match.
+What errors did I face and how did I fix them?
+    A lot of the errors were advanced for me, like declaration merging and setting up a JWT auth middleware as well as implementing the prisma check, but I managed to fix them by doing some research on Google and reading the documentation, following examples provided by Google's AI overview (which was horrid at times that it pushed me to just go to stack overflow), and experiment where needed.
