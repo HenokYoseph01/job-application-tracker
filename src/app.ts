@@ -3,6 +3,7 @@ import morgan from "morgan";
 import { AppError } from "./utils/AppError.js";
 import { geh } from "./middlewares/geh.js";
 import { prisma } from "./lib/prisma.js";
+import "dotenv/config";
 
 //routes
 import applicationRoutes from './routes/application.route.js'
