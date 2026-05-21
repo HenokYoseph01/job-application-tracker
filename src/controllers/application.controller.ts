@@ -16,7 +16,6 @@ type CreateApplicationBody = {
   salaryMin?: number;
   salaryMax?: number;
   workMode: WorkMode;
-  userId: number;
 };
 
 type UpdateApplicationBody = Partial<CreateApplicationBody>;
@@ -184,6 +183,7 @@ const createApplication = async(req: Request, res: Response) => {
 const getApplicationById = async (req: Request<ApplicationParams>, res: Response) => {
     try {
         const id = Number(req.params.id);
+        const userId = req.user?.id;
 
         if (Number.isNaN(id)) {
             return res.status(400).json({
@@ -192,9 +192,17 @@ const getApplicationById = async (req: Request<ApplicationParams>, res: Response
             });
         }
 
-        const application = await prisma.application.findUnique({
+        if (!userId) {
+            return res.status(401).json({
+                status: 401,
+                error: "Unauthorized"
+            });
+        }
+
+        const application = await prisma.application.findFirst({
             where: {
-                id
+                id,
+                userId
             }
         });
 
@@ -224,11 +232,19 @@ const updateApplication = async (
 ) => {
     try {
         const id = Number(req.params.id);
+        const userId = req.user?.id;
 
         if (Number.isNaN(id)) {
             return res.status(400).json({
                 status: 400,
                 error: "Invalid application id"
+            });
+        }
+
+        if (!userId) {
+            return res.status(401).json({
+                status: 401,
+                error: "Unauthorized"
             });
         }
 
@@ -244,8 +260,7 @@ const updateApplication = async (
             notes,
             salaryMin,
             salaryMax,
-            workMode,
-            userId
+            workMode
         } = req.body;
 
         const data: Prisma.ApplicationUncheckedUpdateInput = {};
@@ -262,11 +277,24 @@ const updateApplication = async (
         if (salaryMin !== undefined) data.salaryMin = salaryMin;
         if (salaryMax !== undefined) data.salaryMax = salaryMax;
         if (workMode !== undefined) data.workMode = workMode;
-        if (userId !== undefined) data.userId = userId;
+
+        const application = await prisma.application.findFirst({
+            where: {
+                id,
+                userId
+            }
+        });
+
+        if (!application) {
+            return res.status(404).json({
+                status: 404,
+                error: "Application not found"
+            });
+        }
 
         const updatedApplication = await prisma.application.update({
             where: {
-                id
+                id: application.id
             },
             data
         });
@@ -295,6 +323,7 @@ const updateApplication = async (
 const deleteApplication = async (req: Request<ApplicationParams>, res: Response) => {
     try {
         const id = Number(req.params.id);
+        const userId = req.user?.id;
 
         if (Number.isNaN(id)) {
             return res.status(400).json({
@@ -303,9 +332,30 @@ const deleteApplication = async (req: Request<ApplicationParams>, res: Response)
             });
         }
 
+        if (!userId) {
+            return res.status(401).json({
+                status: 401,
+                error: "Unauthorized"
+            });
+        }
+
+        const application = await prisma.application.findFirst({
+            where: {
+                id,
+                userId
+            }
+        });
+
+        if (!application) {
+            return res.status(404).json({
+                status: 404,
+                error: "Application not found"
+            });
+        }
+
         await prisma.application.delete({
             where: {
-                id
+                id: application.id
             }
         });
 
