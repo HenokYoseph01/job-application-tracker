@@ -134,19 +134,32 @@ const createApplication = async(req: Request, res: Response) => {
             salaryMin,
             salaryMax,
             workMode,
-            userId
         } = req.body as CreateApplicationBody;
 
-        if (!companyName || !jobTitle || !applicationDate || !deadline || !workMode || !userId) {
+        if (!companyName || !jobTitle || !applicationDate || !deadline || !workMode) {
             return res.status(400).json({
                 status: 400,
                 error: "Missing required fields"
             });
         }
 
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                status: 401,
+                error: "Unauthorized"
+            });
+        }
+
         const newApplication = await prisma.application.create({
-            data: req.body
+            data: {
+                ...req.body,
+                userId
+            }
         });
+
+        console.log("Created new application:", newApplication);
 
         if(!newApplication) {
             return res.status(500).json({
