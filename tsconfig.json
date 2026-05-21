@@ -42,5 +42,8 @@
     "skipLibCheck": true,
     "ignoreDeprecations": "6.0"
   },
-  "include": ["src/**/*.ts", "generated/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "generated/**/*.ts"],
+  "ts-node": {
+    "files": true
+  }
 }
