@@ -1,6 +1,7 @@
 import {type Request, type Response} from 'express';
 import { comparePassword, hashPassword } from '../utils/passHash.js';
 import { prisma } from '../lib/prisma.js';
+import { signJwt } from '../utils/jwtsign.js';
 
 type RegisterUserBody = {
     username: string;
@@ -138,11 +139,22 @@ const loginUser = async(
                 });
             }
 
+            //Create token
+            const token = signJwt({ id: user.id, email: user.email });
+
+            if(!token) {
+                return res.status(500).json({
+                    status: 500,
+                    error: "Failed to generate token"
+                });
+            }
+
             const { passwordHash, ...safeUser } = user;
 
             res.status(200).json({
                 status: 200,
-                data: safeUser
+                data: safeUser,
+                token
             });
 
         
@@ -156,11 +168,11 @@ const loginUser = async(
 }
 
 const getUserProfile = async(
-    req: Request<unknown, unknown, unknown, ProfileQuery>,
+    req: Request,
     res: Response
 ) => {
     try {
-        const id = Number(req.query.id);
+        const id = req.user?.id as number;
 
         if(Number.isNaN(id)) {
             return res.status(400).json({
