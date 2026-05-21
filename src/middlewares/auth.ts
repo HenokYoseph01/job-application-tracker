@@ -20,17 +20,23 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
     // Verify Token
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string)as any;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
         console.log(' Decoded Token:', decoded);
-        req .user = {
+        req.user = {
             email: decoded.email as string,
             id: decoded.id as number
         };
-     next();
+        next();
     } catch (error) {
-        return res.status(401).json({error: 'Unauthorized, invalid token'});
+        if (error instanceof jwt.TokenExpiredError) {
+            return res.status(401).json({error: 'Unauthorized, token expired'});
+        }
+
+        if (error instanceof jwt.JsonWebTokenError) {
+            return res.status(401).json({error: 'Unauthorized, invalid token'});
+        }
+
+        return res.status(400).json({error: 'Auth Failed'});
     }
-
-
     
 }
