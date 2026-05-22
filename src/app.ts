@@ -4,6 +4,7 @@ import { AppError } from "./utils/AppError.js";
 import { geh } from "./middlewares/geh.js";
 import { prisma } from "./lib/prisma.js";
 import "dotenv/config";
+import { connectRedis, disconnectRedis, redisClient } from "./lib/redis.js";
 
 //routes
 import applicationRoutes from './routes/application.route.js'
@@ -23,6 +24,19 @@ app.get("/health", (req: Request, res: Response) => {
     res.status(200).json({ status: "ok" });
 })
 
+app.get("/health/redis", async (req: Request, res: Response) => {
+    await redisClient.set("health:redis", "ok", {
+        EX: 30
+    });
+
+    const redisStatus = await redisClient.get("health:redis");
+
+    res.status(200).json({
+        status: "ok",
+        redis: redisStatus
+    });
+})
+
 app.get("/api/v1", (req: Request, res: Response) => {
     res.status(200).json({ message: "AOI version active" });
 })
@@ -40,16 +54,29 @@ app.use((req: Request, res:Response) => {
 
 app.use(geh);
 
-const server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-})
+const startServer = async () => {
+    try {
+        await connectRedis();
 
+        const server = app.listen(PORT, () => {
+            console.log(`Server is running on port ${PORT}`);
+        })
 
-//Graceful shutdown
-process.on("SIGINT", async() => {
-    await prisma.$disconnect();
-    server.close(() => {
-        console.log("Server and Postgres closed gracefully");
-        process.exit(0);
-    });
-})
+        //Graceful shutdown
+        process.on("SIGINT", async() => {
+            await prisma.$disconnect();
+            await disconnectRedis();
+            server.close(() => {
+                console.log("Server, Postgres, and Redis closed gracefully");
+                process.exit(0);
+            });
+        })
+    } catch (error) {
+        console.error("Failed to start server", error);
+        await prisma.$disconnect();
+        await disconnectRedis();
+        process.exit(1);
+    }
+}
+
+startServer();
