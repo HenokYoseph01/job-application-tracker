@@ -3,6 +3,7 @@ import { comparePassword, hashPassword } from '../utils/passHash.js';
 import { prisma } from '../lib/prisma.js';
 import { signJwt, signRefreshJwt } from '../utils/jwtsign.js';
 import { redisClient } from '../lib/redis.js';
+import { verifyRefreshJwt } from '../utils/jwtverify.js';
 
 type RegisterUserBody = {
     username: string;
@@ -150,7 +151,11 @@ const loginUser = async(
                 });
             }
 
-            const refreshToken = signRefreshJwt({ id: user.id, type: 'refresh' });
+            const refreshToken = signRefreshJwt({
+                id: user.id,
+                email: user.email,
+                type: 'refresh'
+            });
 
             if(!refreshToken) {
                 return res.status(500).json({
@@ -219,7 +224,81 @@ const getUserProfile = async(
         });
     } catch (error) {
         console.error(error);
-        return res.status(500).json({
+       
+    }
+}
+
+const refresh = async(
+    req: Request,
+    res: Response
+) => {
+    try {
+        const refreshToken = req.cookies.refreshToken; //old
+
+        if(!refreshToken) {
+            return res.status(401).json({
+                status: 401,
+                error: "Missing refresh token"
+            });
+        }
+
+        const decoded = verifyRefreshJwt(refreshToken);
+
+        if(!decoded || decoded.type !== 'refresh') {
+            return res.status(401).json({
+                status: 401,
+                error: "Invalid refresh token"
+            });
+        }
+
+        const storedToken = await redisClient.get(`refreshToken:${decoded.id}`);
+
+        if(storedToken !== refreshToken) {
+            await redisClient.del(`refreshToken:${decoded.id}`);
+            return res.status(403).json({
+                status: 403,
+                error: "Refresh token revoked"
+            });
+        }
+
+         const token = signJwt({ id: decoded.id, email: decoded.email });
+
+            if(!token) {
+                return res.status(500).json({
+                    status: 500,
+                    error: "Failed to generate token"
+                });
+            }
+
+
+         const newRefreshToken = signRefreshJwt({
+            id: decoded.id,
+            email: decoded.email,
+            type: 'refresh'
+        });
+
+            if(!newRefreshToken) {
+                return res.status(500).json({
+                    status: 500,
+                    error: "Failed to generate refresh token"
+                });
+            }
+
+            //Store in redis
+            await redisClient.set(`refreshToken:${decoded.id}`, newRefreshToken);
+
+            res.cookie('refreshToken', newRefreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+
+            });
+
+            return res.status(200).json({
+                status: 200,
+                token
+            });
+    } catch (error) {
+         return res.status(500).json({
             status: 500,
             error: "Internal Server Error"
         });
@@ -227,4 +306,4 @@ const getUserProfile = async(
 }
 
 
-export default{ registerUser, loginUser, getUserProfile }; 
+export default{ registerUser, loginUser, getUserProfile, refresh }; 
