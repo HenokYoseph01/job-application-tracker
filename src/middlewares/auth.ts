@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
 import 'dotenv/config';
+import { jwt, verifyJwt } from '../utils/jwtverify.js';
 
 
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
@@ -20,11 +20,11 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 
     // Verify Token
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
+        const decoded = verifyJwt(token);
         console.log(' Decoded Token:', decoded);
         req.user = {
-            email: decoded.email as string,
-            id: decoded.id as number
+            email: decoded.email,
+            id: decoded.id
         };
         next();
     } catch (error) {
