@@ -9,6 +9,7 @@ export interface JwtPayload {
 
 export interface JwtRefreshPayload {
     id: number;
+    email: string;
     type: string;
 }
 

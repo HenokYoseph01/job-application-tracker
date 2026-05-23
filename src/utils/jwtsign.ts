@@ -6,9 +6,8 @@ interface JwtPayload {
     email: string;
 }
 
-interface JwtRefreshPayload {
-    id: number;
-    type: string;
+interface JwtRefreshPayload extends JwtPayload {
+    type: "refresh";
 }
 
 export function signJwt(payload: JwtPayload): string {
@@ -16,5 +15,5 @@ export function signJwt(payload: JwtPayload): string {
 }
 
 export function signRefreshJwt(payload: JwtRefreshPayload): string {
-    return jwt.sign({ id: payload.id, type: payload.type }, process.env.JWT_SECRET as string);
+    return jwt.sign(payload, process.env.JWT_SECRET as string);
 }
