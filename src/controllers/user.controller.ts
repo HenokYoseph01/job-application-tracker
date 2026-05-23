@@ -1,7 +1,8 @@
 import {type Request, type Response} from 'express';
 import { comparePassword, hashPassword } from '../utils/passHash.js';
 import { prisma } from '../lib/prisma.js';
-import { signJwt } from '../utils/jwtsign.js';
+import { signJwt, signRefreshJwt } from '../utils/jwtsign.js';
+import { redisClient } from '../lib/redis.js';
 
 type RegisterUserBody = {
     username: string;
@@ -149,12 +150,31 @@ const loginUser = async(
                 });
             }
 
+            const refreshToken = signRefreshJwt({ id: user.id, type: 'refresh' });
+
+            if(!refreshToken) {
+                return res.status(500).json({
+                    status: 500,
+                    error: "Failed to generate refresh token"
+                });
+            }
+
+            //Store in redis
+            await redisClient.set(`refreshToken:${user.id}`, refreshToken);
+
+            res.cookie('refreshToken', refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+
+            });
+
             const { passwordHash, ...safeUser } = user;
 
             res.status(200).json({
                 status: 200,
                 data: safeUser,
-                token
+                token,
+                // refreshToken
             });
 
         
