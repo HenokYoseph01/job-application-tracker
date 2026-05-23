@@ -5,6 +5,7 @@ import { geh } from "./middlewares/geh.js";
 import { prisma } from "./lib/prisma.js";
 import "dotenv/config";
 import { connectRedis, disconnectRedis, redisClient } from "./lib/redis.js";
+import cookieParser from "cookie-parser";
 
 //routes
 import applicationRoutes from './routes/application.route.js'
@@ -16,6 +17,7 @@ const PORT = 20000;
 // Middleware to parse JSON bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser())
 
 app.use(morgan("dev"));
 
