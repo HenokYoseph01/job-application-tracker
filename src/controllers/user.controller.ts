@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { signJwt, signRefreshJwt } from '../utils/jwtsign.js';
 import { redisClient } from '../lib/redis.js';
 import { verifyRefreshJwt } from '../utils/jwtverify.js';
+import { redisKeys } from '../utils/redisKeys.js';
 
 type RegisterUserBody = {
     username: string;
@@ -125,7 +126,7 @@ const loginUser = async(
                 });
             }
 
-            const redisKey = `login:attempts:${normalizedEmail}`;
+            const redisKey = redisKeys.loginAttempts(normalizedEmail);
             //Check how many failed attempts in the last 5 minutes
             const attempts = await redisClient.get(redisKey);
             if (attempts && parseInt(attempts) >= MAX_LOGIN_ATTEMPTS) {
@@ -193,7 +194,7 @@ const loginUser = async(
             }
 
             //Store in redis
-            await redisClient.set(`refreshToken:${user.id}`, refreshToken);
+            await redisClient.set(redisKeys.refreshToken(user.id), refreshToken);
 
             res.cookie('refreshToken', refreshToken, {
                 httpOnly: true,
@@ -280,10 +281,10 @@ const refresh = async(
             });
         }
 
-        const storedToken = await redisClient.get(`refreshToken:${decoded.id}`);
+        const storedToken = await redisClient.get(redisKeys.refreshToken(decoded.id));
 
         if(storedToken !== refreshToken) {
-            await redisClient.del(`refreshToken:${decoded.id}`);
+            await redisClient.del(redisKeys.refreshToken(decoded.id));
             return res.status(403).json({
                 status: 403,
                 error: "Refresh token revoked"
@@ -314,7 +315,7 @@ const refresh = async(
             }
 
             //Store in redis
-            await redisClient.set(`refreshToken:${decoded.id}`, newRefreshToken);
+            await redisClient.set(redisKeys.refreshToken(decoded.id), newRefreshToken);
 
             res.cookie('refreshToken', newRefreshToken, {
                 httpOnly: true,
