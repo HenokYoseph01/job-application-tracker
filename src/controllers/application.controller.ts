@@ -2,6 +2,10 @@ import {type Request, type Response} from "express";
 import {prisma} from "../lib/prisma.js";
 import { Status } from "../../generated/prisma/client.js";
 import type { Prisma, WorkMode } from "../../generated/prisma/client.js";
+import { redisClient } from "../lib/redis.js";
+import { redisKeys } from "../utils/redisKeys.js";
+
+const DASHBOARD_STATS_TTL_SECONDS = 60;
 
 type CreateApplicationBody = {
   companyName: string;
@@ -35,6 +39,109 @@ type GetApplicationsQuery = {
 const isStatus = (value: string): value is Status => {
     return Object.values(Status).includes(value as Status);
 };
+
+const getApplicationStats = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                status: 401,
+                error: "Unauthorized"
+            });
+        }
+
+        const cacheKey = redisKeys.dashboardStats(userId);
+        const cachedStats = await redisClient.get(cacheKey);
+
+        if (cachedStats) {
+            return res.status(200).json({
+                status: 200,
+                source: "cache",
+                data: JSON.parse(cachedStats)
+            });
+        }
+
+        const now = new Date();
+        const thirtyDaysFromNow = new Date(now);
+        thirtyDaysFromNow.setDate(now.getDate() + 30);
+
+        const [
+            totalApplications,
+            applicationsByStatus,
+            upcomingDeadlines,
+            recentApplications
+        ] = await Promise.all([
+            prisma.application.count({
+                where: {
+                    userId
+                }
+            }),
+            prisma.application.groupBy({
+                by: ["status"],
+                where: {
+                    userId
+                },
+                _count: {
+                    status: true
+                }
+            }),
+            prisma.application.findMany({
+                where: {
+                    userId,
+                    deadline: {
+                        gte: now,
+                        lte: thirtyDaysFromNow
+                    }
+                },
+                orderBy: {
+                    deadline: "asc"
+                },
+                take: 5
+            }),
+            prisma.application.findMany({
+                where: {
+                    userId
+                },
+                orderBy: {
+                    applicationDate: "desc"
+                },
+                take: 5
+            })
+        ]);
+
+        const statusCounts = Object.fromEntries(
+            Object.values(Status).map((status) => [status, 0])
+        ) as Record<Status, number>;
+
+        for (const statusGroup of applicationsByStatus) {
+            statusCounts[statusGroup.status] = statusGroup._count.status;
+        }
+
+        const stats = {
+            totalApplications,
+            applicationsByStatus: statusCounts,
+            upcomingDeadlines,
+            recentApplications
+        };
+
+        await redisClient.set(cacheKey, JSON.stringify(stats), {
+            EX: DASHBOARD_STATS_TTL_SECONDS
+        });
+
+        res.status(200).json({
+            status: 200,
+            source: "database",
+            data: stats
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            status: 500,
+            error: "Internal Server Error"
+        });
+    }
+}
 
 
 const getAllApplications = async (
@@ -157,6 +264,8 @@ const createApplication = async(req: Request, res: Response) => {
                 userId
             }
         });
+
+        await redisClient.del(redisKeys.dashboardStats(userId));
 
         console.log("Created new application:", newApplication);
 
@@ -299,6 +408,8 @@ const updateApplication = async (
             data
         });
 
+        await redisClient.del(redisKeys.dashboardStats(userId));
+
         res.status(200).json({
             status: 200,
             data: updatedApplication
@@ -359,6 +470,8 @@ const deleteApplication = async (req: Request<ApplicationParams>, res: Response)
             }
         });
 
+        await redisClient.del(redisKeys.dashboardStats(userId));
+
         res.status(204).send();
     } catch (error: any) {
         console.error(error);
@@ -379,6 +492,7 @@ const deleteApplication = async (req: Request<ApplicationParams>, res: Response)
 
 
 export default {    
+    getApplicationStats,
     getAllApplications,
     createApplication,
     getApplicationById,
