@@ -29,6 +29,10 @@ const userSelect = {
     updatedAt: true
 };
 
+const MAX_LOGIN_ATTEMPTS = 5
+const LOGIN_ATTEMPT_WINDOW_SECONDS = 5 * 60
+
+
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 const isValidEmail = (email: string) => {
@@ -121,11 +125,28 @@ const loginUser = async(
                 });
             }
 
+            const redisKey = `login:attempts:${normalizedEmail}`;
+            //Check how many failed attempts in the last 5 minutes
+            const attempts = await redisClient.get(redisKey);
+            if (attempts && parseInt(attempts) >= MAX_LOGIN_ATTEMPTS) {
+                return res.status(429).json({
+                    status: 429,
+                    error: "Too many login attempts. Please try again later."
+                });
+            }
+
+
+
             const user = await prisma.user.findUnique({
                 where: { email: normalizedEmail }
             })
 
             if(!user) {
+                   //Increment failed login attempts
+              const attempt =  await redisClient.incr(redisKey);
+                if(attempt === 1) {
+                    await redisClient.expire(redisKey, LOGIN_ATTEMPT_WINDOW_SECONDS);
+                }
                 return res.status(401).json({
                     status: 401,
                     error: "Invalid credentials"
@@ -135,11 +156,18 @@ const loginUser = async(
             const isPasswordValid = await comparePassword(password, user.passwordHash);
 
             if(!isPasswordValid) {
+                //Increment failed login attempts
+              const attempt =  await redisClient.incr(redisKey);
+                if(attempt === 1) {
+                    await redisClient.expire(redisKey, LOGIN_ATTEMPT_WINDOW_SECONDS);
+                }
                 return res.status(401).json({
                     status: 401,
                     error: "Invalid credentials"
                 });
             }
+
+            await redisClient.del(redisKey); //Reset failed login attempts on successful login
 
             //Create token
             const token = signJwt({ id: user.id, email: user.email });
@@ -174,6 +202,7 @@ const loginUser = async(
             });
 
             const { passwordHash, ...safeUser } = user;
+            
 
             res.status(200).json({
                 status: 200,
