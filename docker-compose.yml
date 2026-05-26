@@ -12,7 +12,7 @@ services:
     depends_on:
       - postgres-practice
       - redis-practice
-      - valut-practice
+      - vault-practice
 
   postgres-practice:
     image: postgres:15-alpine
@@ -36,7 +36,7 @@ services:
     volumes:
       - redis-data-test:/data
   
-  valut-practice:
+  vault-practice:
     image: hashicorp/vault:latest
     container_name: vault-practice
     ports:
