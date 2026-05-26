@@ -51,3 +51,27 @@ How did you prevent users from accessing each other’s data?
     Use prisma getfirst to compare the id of a data but also the userId with the current logged in user through req.user.id, which in turn will return nothing if the data's user id and the user id don't match.
 What errors did I face and how did I fix them?
     A lot of the errors were advanced for me, like declaration merging and setting up a JWT auth middleware as well as implementing the prisma check, but I managed to fix them by doing some research on Google and reading the documentation, following examples provided by Google's AI overview (which was horrid at times that it pushed me to just go to stack overflow), and experiment where needed.
+
+
+What is Redis?
+    Redis is server that acts like cache, basically an in memory data structure
+What problem does Redis solve here?
+    Makes data fetching quick as it doesn't focus on getting data from the database but just fetches what is stored in memory
+What is Redis used for in my project?
+    It was used as a way to rate limit logins as well as be a palce to store application stats
+What is TTL?
+    Time to live is basically setting an expiration for a redis key so it doesn't stay in redis's storage forever
+What is caching?
+    Caching is when we store data that is expensive or repeated to fetch in a faster place for a short amount of time. In this app, the dashboard stats are cached in Redis so if the user asks for the same stats again, the app can return it from Redis instead of recalculating everything from Postgres again.
+What is cache invalidation?
+    Cache invalidation is the process of clearing or updating cached data when the real data changes. For example, if a user creates, updates, or deletes an application, the old dashboard stats in Redis are no longer accurate, so the dashboard:stats:user:<userId> key should be deleted so the next request recalculates fresh stats from Postgres.
+What is rate limiting?
+    Rate limiting is a way to control how many times someone can do an action in a certain amount of time. In my app, failed logins are tracked using Redis with login:attempts:<email>. If someone fails too many times, they get blocked temporarily. This helps protect the login route from brute force attacks.
+What is the difference between Postgres and Redis?
+    Postgres is the main database and stores permanent application data like users and job applications. Redis stores temporary data in memory and is much faster, but it is not where I should keep my main app data. In this project, Postgres is the source of truth while Redis is used for cache, refresh tokens, and login attempt counts.
+Why should I not store permanent application data in Redis?
+    Redis is mainly memory based and is better for temporary or fast access data. Even though Redis can persist some data, it should not replace Postgres for important permanent data because Postgres is built for relational data, constraints, migrations, and long term storage. If Redis data expires or gets cleared, I should not lose important user applications.
+How does logout work with Redis?
+    In my current app I don't fully have logout implemented yet, but the concept is to delete the user's refresh token key from Redis. Since refresh tokens are stored using refresh:user:<userId>, logout would delete that key and clear the refreshToken cookie. After that, the old refresh token should no longer be usable to get a new access token.
+What errors did I face and how did I fix them?
+    I faced errors with Redis connection setup, key naming, and understanding when Redis should be used instead of Postgres. I also had to understand TTL, cache invalidation, and how to store refresh tokens and login attempts without making the keys messy. I fixed this by creating clear Redis key conventions like refresh:user:<userId>, login:attempts:<email>, and dashboard:stats:user:<userId>, and by using Redis only for temporary/cache related data rather than permanent application data.
