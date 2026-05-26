@@ -2,7 +2,7 @@ import {type Request, type Response} from 'express';
 import { comparePassword, hashPassword } from '../utils/passHash.js';
 import { prisma } from '../lib/prisma.js';
 import { signJwt, signRefreshJwt } from '../utils/jwtsign.js';
-import { redisClient } from '../lib/redis.js';
+import { getRedisClient } from '../lib/redis.js';
 import { verifyRefreshJwt } from '../utils/jwtverify.js';
 import { redisKeys } from '../utils/redisKeys.js';
 
@@ -118,6 +118,7 @@ const loginUser = async(
     try {
             const { email, password } = req.body;
             const normalizedEmail = normalizeEmail(email ?? "");
+            const redisClient = getRedisClient();
 
             if(!normalizedEmail || !password) {
                 return res.status(400).json({
@@ -264,6 +265,7 @@ const refresh = async(
 ) => {
     try {
         const refreshToken = req.cookies.refreshToken; //old
+        const redisClient = getRedisClient();
 
         if(!refreshToken) {
             return res.status(401).json({

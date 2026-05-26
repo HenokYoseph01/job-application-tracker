@@ -4,7 +4,7 @@ import { AppError } from "./utils/AppError.js";
 import { geh } from "./middlewares/geh.js";
 import { prisma } from "./lib/prisma.js";
 import "dotenv/config";
-import { connectRedis, disconnectRedis, redisClient } from "./lib/redis.js";
+import { connectRedis, disconnectRedis, getRedisClient } from "./lib/redis.js";
 import cookieParser from "cookie-parser";
 
 //routes
@@ -27,6 +27,8 @@ app.get("/health", (req: Request, res: Response) => {
 })
 
 app.get("/health/redis", async (req: Request, res: Response) => {
+    const redisClient = getRedisClient();
+
     await redisClient.set("health:redis", "ok", {
         EX: 30
     });

@@ -2,7 +2,7 @@ import {type Request, type Response} from "express";
 import {prisma} from "../lib/prisma.js";
 import { Status } from "../../generated/prisma/client.js";
 import type { Prisma, WorkMode } from "../../generated/prisma/client.js";
-import { redisClient } from "../lib/redis.js";
+import { getRedisClient } from "../lib/redis.js";
 import { redisKeys } from "../utils/redisKeys.js";
 
 const DASHBOARD_STATS_TTL_SECONDS = 60;
@@ -51,6 +51,7 @@ const getApplicationStats = async (req: Request, res: Response) => {
             });
         }
 
+        const redisClient = getRedisClient();
         const cacheKey = redisKeys.dashboardStats(userId);
         const cachedStats = await redisClient.get(cacheKey);
 
@@ -258,6 +259,7 @@ const createApplication = async(req: Request, res: Response) => {
             });
         }
 
+        const redisClient = getRedisClient();
         const newApplication = await prisma.application.create({
             data: {
                 ...req.body,
@@ -357,6 +359,7 @@ const updateApplication = async (
             });
         }
 
+        const redisClient = getRedisClient();
         const {
             companyName,
             jobTitle,
@@ -450,6 +453,7 @@ const deleteApplication = async (req: Request<ApplicationParams>, res: Response)
             });
         }
 
+        const redisClient = getRedisClient();
         const application = await prisma.application.findFirst({
             where: {
                 id,
