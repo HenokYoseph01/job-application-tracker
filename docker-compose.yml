@@ -12,6 +12,7 @@ services:
     depends_on:
       - postgres-practice
       - redis-practice
+      - valut-practice
 
   postgres-practice:
     image: postgres:15-alpine
@@ -34,6 +35,19 @@ services:
       - "6381:6379"
     volumes:
       - redis-data-test:/data
+  
+  valut-practice:
+    image: hashicorp/vault:latest
+    container_name: vault-practice
+    ports:
+      - "8200:8200"
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=${VAULT_DEV_ROOT_TOKEN_ID} # Set your root token
+      - VAULT_ADDR=http://127.0.0.1:8200
+      - SKIP_SETCAP=true  # Bypasses the failing capability check
+      - SKIP_CHOWN=true 
+    cap_add:
+      - IPC_LOCK
 
 
 volumes:
