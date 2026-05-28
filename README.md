@@ -52,7 +52,7 @@ How did you prevent users from accessing each other’s data?
 What errors did I face and how did I fix them?
     A lot of the errors were advanced for me, like declaration merging and setting up a JWT auth middleware as well as implementing the prisma check, but I managed to fix them by doing some research on Google and reading the documentation, following examples provided by Google's AI overview (which was horrid at times that it pushed me to just go to stack overflow), and experiment where needed.
 
-
+Milestonr 4:
 What is Redis?
     Redis is server that acts like cache, basically an in memory data structure
 What problem does Redis solve here?
@@ -75,3 +75,29 @@ How does logout work with Redis?
     In my current app I don't fully have logout implemented yet, but the concept is to delete the user's refresh token key from Redis. Since refresh tokens are stored using refresh:user:<userId>, logout would delete that key and clear the refreshToken cookie. After that, the old refresh token should no longer be usable to get a new access token.
 What errors did I face and how did I fix them?
     I faced errors with Redis connection setup, key naming, and understanding when Redis should be used instead of Postgres. I also had to understand TTL, cache invalidation, and how to store refresh tokens and login attempts without making the keys messy. I fixed this by creating clear Redis key conventions like refresh:user:<userId>, login:attempts:<email>, and dashboard:stats:user:<userId>, and by using Redis only for temporary/cache related data rather than permanent application data.
+
+MIlestonr 5:
+What is HashiCorp Vault?
+    It's a centeralized secret management system that's made to securley store and tightly control access to tokens and any other secrets used in a project.
+What problem does Vault solve?
+    I believe the main problem vault solves is having a centeralized place for secrets that anyone can use if they have the token and uri access to. It can also be used as a detailed audit log to see who accessed what secret.
+Why is .env alone not ideal for secrets?
+    The main issue for .env lies in production grade security as usually .env files are stored in a server in pure text so if there is any leaks or hacks the env file will be accessible to outside forces and in turn lead to access to everything. That and also there is no way to audit who accessed what with an .env file
+What secrets did I move to Vault?
+    I moved postgres credentials, redis set up, JWT secrets and expiry dates.
+What does Vault dev mode mean?
+    Basically sacrfices security for convinence which is okay in development mode as it is local to the developer and makes it easier to access the secrets for development purposes. Not meant for production purposes.
+Why is dev mode unsafe for production?
+    In-Memory Storage: All data is lost the moment the Vault server process stops or restarts.
+
+    No TLS/HTTPS: Communication between your app and Vault is unencrypted, meaning credentials travel over the network in plain text, vulnerable to interception.
+
+    Root Token Exposure: It initializes with a highly privileged, static root token displayed in clear text in the terminal, violating the principle of least privilege.
+
+How does the app fetch secrets at startup?
+    Through the use of node vault, I use the vault string stored in .env and access it via the token pass and then once recieved, I send it in an object manner to be used wherever required.
+What happens if Vault is unavailable?
+    Depending on how it is coded, the app can fail and not move forward as it does not have the necessary information to start services that are required for the application to run properly. 
+
+What errors did I face and how did I fix them?
+    A lot of the errors land on how to implement vault and how to call it programmatically which I managed to solve via reading documentation, stack overflow, and implementation examples on medium and AI overview.
