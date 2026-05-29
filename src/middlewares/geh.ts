@@ -1,12 +1,29 @@
 import {type Request, type Response, type NextFunction} from 'express';
+import { getConfig } from '../lib/vault.config.js';
+import { AppError } from '../utils/AppError.js';
 
-export const geh = (err: any, req: Request, res: Response, next: NextFunction) => {
-    err.statusCode = err.statusCode || 500;
-    err.status = err.status || 'error';
+const getPrismaError = (err: any) => {
+    if (err?.code === "P2002") {
+        return new AppError("Resource already exists", 409);
+    }
 
-    res.status(err.statusCode).json({
-        status: err.status,
-        message: err.message,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    if (err?.code === "P2025") {
+        return new AppError("Resource not found", 404);
+    }
+
+    return err;
+};
+
+export const geh = async(err: any, req: Request, res: Response, next: NextFunction) => {
+    const config = await getConfig().catch(() => ({ NODE_ENV: process.env.NODE_ENV ?? "development" }));
+    const normalizedError = getPrismaError(err);
+    const statusCode = normalizedError.statusCode || 500;
+    const status = normalizedError.status || (statusCode >= 500 ? "error" : "fail");
+    const message = normalizedError.isOperational ? normalizedError.message : "Internal Server Error";
+
+    res.status(statusCode).json({
+        status,
+        message,
+        stack: config.NODE_ENV === 'development' ? normalizedError.stack : undefined
     })
 }

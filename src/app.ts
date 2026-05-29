@@ -1,4 +1,4 @@
-import express, {type Request, type Response, type Application} from "express";
+import express, {type Request, type Response, type Application, type NextFunction} from "express";
 import morgan from "morgan";
 import { AppError } from "./utils/AppError.js";
 import { geh } from "./middlewares/geh.js";
@@ -52,8 +52,10 @@ app.use("/api/v1/users", userRoutes);
 
 
 // Handle 404 errors for undefined routes
-app.use((req: Request, res:Response) => {
-    res.status(404).json({ error: "Not Found" });
+app.use((req: Request, res:Response, next:NextFunction) => {
+    // res.status(404).json({ error: "Not Found" });
+    const error = new AppError(`Can't find ${req.originalUrl}!`, 404);
+    next(error);
 })
 
 app.use(geh);
