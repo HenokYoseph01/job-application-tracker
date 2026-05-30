@@ -1,11 +1,11 @@
 import express, {type Request, type Response, type Application, type NextFunction} from "express";
-import morgan from "morgan";
 import { AppError } from "./utils/AppError.js";
 import { geh } from "./middlewares/geh.js";
 import { prisma } from "./lib/prisma.js";
 import "dotenv/config";
 import { connectRedis, disconnectRedis, getRedisClient } from "./lib/redis.js";
 import cookieParser from "cookie-parser";
+import { createHttpLogger, getLogger, initLogger } from "./lib/logger.js";
 
 //routes
 import applicationRoutes from './routes/application.route.js'
@@ -19,7 +19,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser())
 
-app.use(morgan("dev"));
+app.use(createHttpLogger());
 
 
 app.get("/health", (req: Request, res: Response) => {
@@ -62,23 +62,29 @@ app.use(geh);
 
 const startServer = async () => {
     try {
+        const logger = await initLogger();
         await connectRedis();
 
         const server = app.listen(PORT, () => {
-            console.log(`Server is running on port ${PORT}`);
+            logger.info({ port: PORT }, "Server started");
         })
 
         //Graceful shutdown
         process.on("SIGINT", async() => {
+            const logger = getLogger();
             await prisma.$disconnect();
             await disconnectRedis();
             server.close(() => {
-                console.log("Server, Postgres, and Redis closed gracefully");
+                logger.info("Server, Postgres, and Redis closed gracefully");
                 process.exit(0);
             });
         })
     } catch (error) {
-        console.error("Failed to start server", error);
+        const logger = await initLogger().catch(() => null);
+        logger?.fatal({ err: error }, "Failed to start server");
+        if (!logger) {
+            console.error("Failed to start server", error);
+        }
         await prisma.$disconnect();
         await disconnectRedis();
         process.exit(1);
