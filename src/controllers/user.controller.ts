@@ -5,6 +5,7 @@ import { signJwt, signRefreshJwt } from '../utils/jwtsign.js';
 import { getRedisClient } from '../lib/redis.js';
 import { verifyRefreshJwt } from '../utils/jwtverify.js';
 import { redisKeys } from '../utils/redisKeys.js';
+import { sendError, sendSuccess } from '../utils/response.js';
 
 type RegisterUserBody = {
     username: string;
@@ -50,31 +51,19 @@ const registerUser = async(
         const normalizedUsername = username?.trim();
 
         if(!normalizedUsername || !normalizedEmail || !password || !confirmPassword) {
-            return res.status(400).json({
-                status: 400,
-                error: "Missing required fields"
-            });
+            return sendError(res, { statusCode: 400, message: "Missing required fields" });
         }
 
         if(!isValidEmail(normalizedEmail)) {
-            return res.status(400).json({
-                status: 400,
-                error: "Invalid email"
-            });
+            return sendError(res, { statusCode: 400, message: "Invalid email" });
         }
 
         if(password.length < 8) {
-            return res.status(400).json({
-                status: 400,
-                error: "Password must be at least 8 characters"
-            });
+            return sendError(res, { statusCode: 400, message: "Password must be at least 8 characters" });
         }
 
         if(password !== confirmPassword) {
-            return res.status(400).json({
-                status: 400,
-                error: "Passwords do not match"
-            });
+            return sendError(res, { statusCode: 400, message: "Passwords do not match" });
         }
 
         const hashedPassword = await hashPassword(password);
@@ -88,8 +77,9 @@ const registerUser = async(
             select: userSelect
         });
 
-        res.status(201).json({
-            status: 201,
+        return sendSuccess(res, {
+            statusCode: 201,
+            message: "User registered successfully",
             data: newUser
         });
 
@@ -98,16 +88,10 @@ const registerUser = async(
         console.error(error);
 
         if (error.code === "P2002") {
-            return res.status(409).json({
-                status: 409,
-                error: "Email already exists"
-            });
+            return sendError(res, { statusCode: 409, message: "Email already exists" });
         }
 
-        return res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
-        });
+        return sendError(res, { statusCode: 500, message: "Internal Server Error" });
     }
 }
 
@@ -121,20 +105,14 @@ const loginUser = async(
             const redisClient = getRedisClient();
 
             if(!normalizedEmail || !password) {
-                return res.status(400).json({
-                    status: 400,
-                    error: "Missing required fields"
-                });
+                return sendError(res, { statusCode: 400, message: "Missing required fields" });
             }
 
             const redisKey = redisKeys.loginAttempts(normalizedEmail);
             //Check how many failed attempts in the last 5 minutes
             const attempts = await redisClient.get(redisKey);
             if (attempts && parseInt(attempts) >= MAX_LOGIN_ATTEMPTS) {
-                return res.status(429).json({
-                    status: 429,
-                    error: "Too many login attempts. Please try again later."
-                });
+                return sendError(res, { statusCode: 429, message: "Too many login attempts. Please try again later." });
             }
 
 
@@ -149,10 +127,7 @@ const loginUser = async(
                 if(attempt === 1) {
                     await redisClient.expire(redisKey, LOGIN_ATTEMPT_WINDOW_SECONDS);
                 }
-                return res.status(401).json({
-                    status: 401,
-                    error: "Invalid credentials"
-                });
+                return sendError(res, { statusCode: 401, message: "Invalid credentials" });
             }
 
             const isPasswordValid = await comparePassword(password, user.passwordHash);
@@ -163,10 +138,7 @@ const loginUser = async(
                 if(attempt === 1) {
                     await redisClient.expire(redisKey, LOGIN_ATTEMPT_WINDOW_SECONDS);
                 }
-                return res.status(401).json({
-                    status: 401,
-                    error: "Invalid credentials"
-                });
+                return sendError(res, { statusCode: 401, message: "Invalid credentials" });
             }
 
             await redisClient.del(redisKey); //Reset failed login attempts on successful login
@@ -175,10 +147,7 @@ const loginUser = async(
             const token = signJwt({ id: user.id, email: user.email });
 
             if(!token) {
-                return res.status(500).json({
-                    status: 500,
-                    error: "Failed to generate token"
-                });
+                return sendError(res, { statusCode: 500, message: "Failed to generate token" });
             }
 
             const refreshToken = signRefreshJwt({
@@ -188,10 +157,7 @@ const loginUser = async(
             });
 
             if(!refreshToken) {
-                return res.status(500).json({
-                    status: 500,
-                    error: "Failed to generate refresh token"
-                });
+                return sendError(res, { statusCode: 500, message: "Failed to generate refresh token" });
             }
 
             //Store in redis
@@ -206,20 +172,18 @@ const loginUser = async(
             const { passwordHash, ...safeUser } = user;
             
 
-            res.status(200).json({
-                status: 200,
-                data: safeUser,
-                token,
-                // refreshToken
+            return sendSuccess(res, {
+                message: "User logged in successfully",
+                data: {
+                    user: safeUser,
+                    token,
+                },
             });
 
         
     } catch (error) {
         console.error(error);
-        return res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
-        });
+        return sendError(res, { statusCode: 500, message: "Internal Server Error" });
     }
 }
 
@@ -231,10 +195,7 @@ const getUserProfile = async(
         const id = req.user?.id as number;
 
         if(Number.isNaN(id)) {
-            return res.status(400).json({
-                status: 400,
-                error: "User id is required"
-            });
+            return sendError(res, { statusCode: 400, message: "User id is required" });
         }
 
         const user = await prisma.user.findUnique({
@@ -243,14 +204,11 @@ const getUserProfile = async(
         });
 
         if(!user) {
-            return res.status(404).json({
-                status: 404,
-                error: "User not found"
-            });
+            return sendError(res, { statusCode: 404, message: "User not found" });
         }
 
-        res.status(200).json({
-            status: 200,
+        return sendSuccess(res, {
+            message: "User profile fetched successfully",
             data: user
         });
     } catch (error) {
@@ -268,38 +226,26 @@ const refresh = async(
         const redisClient = getRedisClient();
 
         if(!refreshToken) {
-            return res.status(401).json({
-                status: 401,
-                error: "Missing refresh token"
-            });
+            return sendError(res, { statusCode: 401, message: "Missing refresh token" });
         }
 
         const decoded = verifyRefreshJwt(refreshToken);
 
         if(!decoded || decoded.type !== 'refresh') {
-            return res.status(401).json({
-                status: 401,
-                error: "Invalid refresh token"
-            });
+            return sendError(res, { statusCode: 401, message: "Invalid refresh token" });
         }
 
         const storedToken = await redisClient.get(redisKeys.refreshToken(decoded.id));
 
         if(storedToken !== refreshToken) {
             await redisClient.del(redisKeys.refreshToken(decoded.id));
-            return res.status(403).json({
-                status: 403,
-                error: "Refresh token revoked"
-            });
+            return sendError(res, { statusCode: 403, message: "Refresh token revoked" });
         }
 
          const token = signJwt({ id: decoded.id, email: decoded.email });
 
             if(!token) {
-                return res.status(500).json({
-                    status: 500,
-                    error: "Failed to generate token"
-                });
+                return sendError(res, { statusCode: 500, message: "Failed to generate token" });
             }
 
 
@@ -310,10 +256,7 @@ const refresh = async(
         });
 
             if(!newRefreshToken) {
-                return res.status(500).json({
-                    status: 500,
-                    error: "Failed to generate refresh token"
-                });
+                return sendError(res, { statusCode: 500, message: "Failed to generate refresh token" });
             }
 
             //Store in redis
@@ -325,15 +268,14 @@ const refresh = async(
 
             });
 
-            return res.status(200).json({
-                status: 200,
-                token
+            return sendSuccess(res, {
+                message: "Token refreshed successfully",
+                data: {
+                    token
+                }
             });
     } catch (error) {
-         return res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
-        });
+         return sendError(res, { statusCode: 500, message: "Internal Server Error" });
     }
 }
 

@@ -4,6 +4,7 @@ import { Status } from "../../generated/prisma/client.js";
 import type { Prisma, WorkMode } from "../../generated/prisma/client.js";
 import { getRedisClient } from "../lib/redis.js";
 import { redisKeys } from "../utils/redisKeys.js";
+import { sendError, sendSuccess } from "../utils/response.js";
 
 const DASHBOARD_STATS_TTL_SECONDS = 60;
 
@@ -45,10 +46,7 @@ const getApplicationStats = async (req: Request, res: Response) => {
         const userId = req.user?.id;
 
         if (!userId) {
-            return res.status(401).json({
-                status: 401,
-                error: "Unauthorized"
-            });
+            return sendError(res, { statusCode: 401, message: "Unauthorized" });
         }
 
         const redisClient = getRedisClient();
@@ -56,10 +54,12 @@ const getApplicationStats = async (req: Request, res: Response) => {
         const cachedStats = await redisClient.get(cacheKey);
 
         if (cachedStats) {
-            return res.status(200).json({
-                status: 200,
-                source: "cache",
-                data: JSON.parse(cachedStats)
+            return sendSuccess(res, {
+                message: "Application stats fetched successfully",
+                data: JSON.parse(cachedStats),
+                meta: {
+                    source: "cache"
+                }
             });
         }
 
@@ -130,17 +130,16 @@ const getApplicationStats = async (req: Request, res: Response) => {
             EX: DASHBOARD_STATS_TTL_SECONDS
         });
 
-        res.status(200).json({
-            status: 200,
-            source: "database",
-            data: stats
+        return sendSuccess(res, {
+            message: "Application stats fetched successfully",
+            data: stats,
+            meta: {
+                source: "database"
+            }
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
-        });
+        return sendError(res, { statusCode: 500, message: "Internal Server Error" });
     }
 }
 
@@ -156,31 +155,19 @@ const getAllApplications = async (
         const limit = Number(req.query.limit ?? 10);
 
         if (status && !isStatus(status)) {
-            return res.status(400).json({
-                status: 400,
-                error: "Invalid status filter"
-            });
+            return sendError(res, { statusCode: 400, message: "Invalid status filter" });
         }
 
         if (sort !== "asc" && sort !== "desc") {
-            return res.status(400).json({
-                status: 400,
-                error: "Sort must be either asc or desc"
-            });
+            return sendError(res, { statusCode: 400, message: "Sort must be either asc or desc" });
         }
 
         if (!Number.isInteger(page) || page < 1) {
-            return res.status(400).json({
-                status: 400,
-                error: "Page must be a positive integer"
-            });
+            return sendError(res, { statusCode: 400, message: "Page must be a positive integer" });
         }
 
         if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
-            return res.status(400).json({
-                status: 400,
-                error: "Limit must be a positive integer between 1 and 100"
-            });
+            return sendError(res, { statusCode: 400, message: "Limit must be a positive integer between 1 and 100" });
         }
 
         const where: Prisma.ApplicationWhereInput = {};
@@ -206,22 +193,21 @@ const getAllApplications = async (
             take: limit
         });
 
-        res.status(200).json({
-            status: 200,
-            results: applications.length,
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-            data: applications
+        return sendSuccess(res, {
+            message: "Applications fetched successfully",
+            data: applications,
+            meta: {
+                results: applications.length,
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            }
         });
     } catch (error) {
         console.error(error);
 
-        res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
-        });
+        return sendError(res, { statusCode: 500, message: "Internal Server Error" });
     }
     
 }
@@ -244,19 +230,13 @@ const createApplication = async(req: Request, res: Response) => {
         } = req.body as CreateApplicationBody;
 
         if (!companyName || !jobTitle || !applicationDate || !deadline || !workMode) {
-            return res.status(400).json({
-                status: 400,
-                error: "Missing required fields"
-            });
+            return sendError(res, { statusCode: 400, message: "Missing required fields" });
         }
 
         const userId = req.user?.id;
 
         if (!userId) {
-            return res.status(401).json({
-                status: 401,
-                error: "Unauthorized"
-            });
+            return sendError(res, { statusCode: 401, message: "Unauthorized" });
         }
 
         const redisClient = getRedisClient();
@@ -272,22 +252,17 @@ const createApplication = async(req: Request, res: Response) => {
         console.log("Created new application:", newApplication);
 
         if(!newApplication) {
-            return res.status(500).json({
-                status: 500,
-                error: "Failed to create application"
-            });
+            return sendError(res, { statusCode: 500, message: "Failed to create application" });
         }
 
-        res.status(201).json({
-            status: 201,
+        return sendSuccess(res, {
+            statusCode: 201,
+            message: "Application created successfully",
             data: newApplication
         });
     } catch (error) {
         console.error(error);
-        res.status(400).json({
-            status: 400,
-            error: "Bad Request"
-        });
+        return sendError(res, { statusCode: 400, message: "Bad Request" });
     }
 }
 
@@ -297,17 +272,11 @@ const getApplicationById = async (req: Request<ApplicationParams>, res: Response
         const userId = req.user?.id;
 
         if (Number.isNaN(id)) {
-            return res.status(400).json({
-                status: 400,
-                error: "Invalid application id"
-            });
+            return sendError(res, { statusCode: 400, message: "Invalid application id" });
         }
 
         if (!userId) {
-            return res.status(401).json({
-                status: 401,
-                error: "Unauthorized"
-            });
+            return sendError(res, { statusCode: 401, message: "Unauthorized" });
         }
 
         const application = await prisma.application.findFirst({
@@ -318,22 +287,16 @@ const getApplicationById = async (req: Request<ApplicationParams>, res: Response
         });
 
         if (!application) {
-            return res.status(404).json({
-                status: 404,
-                error: "Application not found"
-            });
+            return sendError(res, { statusCode: 404, message: "Application not found" });
         }
 
-        res.status(200).json({
-            status: 200,
+        return sendSuccess(res, {
+            message: "Application fetched successfully",
             data: application
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
-        });
+        return sendError(res, { statusCode: 500, message: "Internal Server Error" });
     }
 }
 
@@ -346,17 +309,11 @@ const updateApplication = async (
         const userId = req.user?.id;
 
         if (Number.isNaN(id)) {
-            return res.status(400).json({
-                status: 400,
-                error: "Invalid application id"
-            });
+            return sendError(res, { statusCode: 400, message: "Invalid application id" });
         }
 
         if (!userId) {
-            return res.status(401).json({
-                status: 401,
-                error: "Unauthorized"
-            });
+            return sendError(res, { statusCode: 401, message: "Unauthorized" });
         }
 
         const redisClient = getRedisClient();
@@ -398,10 +355,7 @@ const updateApplication = async (
         });
 
         if (!application) {
-            return res.status(404).json({
-                status: 404,
-                error: "Application not found"
-            });
+            return sendError(res, { statusCode: 404, message: "Application not found" });
         }
 
         const updatedApplication = await prisma.application.update({
@@ -413,24 +367,18 @@ const updateApplication = async (
 
         await redisClient.del(redisKeys.dashboardStats(userId));
 
-        res.status(200).json({
-            status: 200,
+        return sendSuccess(res, {
+            message: "Application updated successfully",
             data: updatedApplication
         });
     } catch (error: any) {
         console.error(error);
 
         if (error.code === "P2025") {
-            return res.status(404).json({
-                status: 404,
-                error: "Application not found"
-            });
+            return sendError(res, { statusCode: 404, message: "Application not found" });
         }
 
-        res.status(400).json({
-            status: 400,
-            error: "Bad Request"
-        });
+        return sendError(res, { statusCode: 400, message: "Bad Request" });
     }
 }
 
@@ -440,17 +388,11 @@ const deleteApplication = async (req: Request<ApplicationParams>, res: Response)
         const userId = req.user?.id;
 
         if (Number.isNaN(id)) {
-            return res.status(400).json({
-                status: 400,
-                error: "Invalid application id"
-            });
+            return sendError(res, { statusCode: 400, message: "Invalid application id" });
         }
 
         if (!userId) {
-            return res.status(401).json({
-                status: 401,
-                error: "Unauthorized"
-            });
+            return sendError(res, { statusCode: 401, message: "Unauthorized" });
         }
 
         const redisClient = getRedisClient();
@@ -462,10 +404,7 @@ const deleteApplication = async (req: Request<ApplicationParams>, res: Response)
         });
 
         if (!application) {
-            return res.status(404).json({
-                status: 404,
-                error: "Application not found"
-            });
+            return sendError(res, { statusCode: 404, message: "Application not found" });
         }
 
         await prisma.application.delete({
@@ -476,21 +415,18 @@ const deleteApplication = async (req: Request<ApplicationParams>, res: Response)
 
         await redisClient.del(redisKeys.dashboardStats(userId));
 
-        res.status(204).send();
+        return sendSuccess(res, {
+            message: "Application deleted successfully",
+            data: null
+        });
     } catch (error: any) {
         console.error(error);
 
         if (error.code === "P2025") {
-            return res.status(404).json({
-                status: 404,
-                error: "Application not found"
-            });
+            return sendError(res, { statusCode: 404, message: "Application not found" });
         }
 
-        res.status(500).json({
-            status: 500,
-            error: "Internal Server Error"
-        });
+        return sendError(res, { statusCode: 500, message: "Internal Server Error" });
     }
 }
 

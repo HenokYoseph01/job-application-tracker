@@ -6,6 +6,7 @@ import "dotenv/config";
 import { connectRedis, disconnectRedis, getRedisClient } from "./lib/redis.js";
 import cookieParser from "cookie-parser";
 import { createHttpLogger, getLogger, initLogger } from "./lib/logger.js";
+import { sendSuccess } from "./utils/response.js";
 
 //routes
 import applicationRoutes from './routes/application.route.js'
@@ -23,7 +24,12 @@ app.use(createHttpLogger());
 
 
 app.get("/health", (req: Request, res: Response) => {
-    res.status(200).json({ status: "ok" });
+    return sendSuccess(res, {
+        message: "API is healthy",
+        data: {
+            status: "ok"
+        }
+    });
 })
 
 app.get("/health/redis", async (req: Request, res: Response) => {
@@ -35,14 +41,19 @@ app.get("/health/redis", async (req: Request, res: Response) => {
 
     const redisStatus = await redisClient.get("health:redis");
 
-    res.status(200).json({
-        status: "ok",
-        redis: redisStatus
+    return sendSuccess(res, {
+        message: "Redis is healthy",
+        data: {
+            status: "ok",
+            redis: redisStatus
+        }
     });
 })
 
 app.get("/api/v1", (req: Request, res: Response) => {
-    res.status(200).json({ message: "AOI version active" });
+    return sendSuccess(res, {
+        message: "AOI version active"
+    });
 })
 
 app.use("/api/v1/applications", applicationRoutes);
@@ -53,7 +64,6 @@ app.use("/api/v1/users", userRoutes);
 
 // Handle 404 errors for undefined routes
 app.use((req: Request, res:Response, next:NextFunction) => {
-    // res.status(404).json({ error: "Not Found" });
     const error = new AppError(`Can't find ${req.originalUrl}!`, 404);
     next(error);
 })

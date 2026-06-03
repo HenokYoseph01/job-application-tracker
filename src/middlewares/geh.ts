@@ -1,6 +1,7 @@
 import {type Request, type Response, type NextFunction} from 'express';
 import { getConfig } from '../lib/vault.config.js';
 import { AppError } from '../utils/AppError.js';
+import { sendError } from '../utils/response.js';
 
 const getPrismaError = (err: any) => {
     if (err?.code === "P2002") {
@@ -21,9 +22,12 @@ export const geh = async(err: any, req: Request, res: Response, next: NextFuncti
     const status = normalizedError.status || (statusCode >= 500 ? "error" : "fail");
     const message = normalizedError.isOperational ? normalizedError.message : "Internal Server Error";
 
-    res.status(statusCode).json({
-        status,
+    return sendError(res, {
+        statusCode,
         message,
-        stack: config.NODE_ENV === 'development' ? normalizedError.stack : undefined
-    })
+        errors: config.NODE_ENV === 'development' ? {
+            status,
+            stack: normalizedError.stack
+        } : undefined
+    });
 }
